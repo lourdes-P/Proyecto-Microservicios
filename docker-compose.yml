@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+
+  mongoimport:
+    image: library/mongo:latest
+    container_name: mongoimport
+    volumes:
+      - ./data/movies.json:/src/data/movies.json
+    command: mongoimport --host mongo --db peliculas --collection movies --file /src/data/movies.json
+    networks:
+      - app-network
+
+  mongo:
+    image: library/mongo:latest
+    container_name: mongo
+    ports:
+      - "27017:27017"    
+    depends_on:
+      - mongoimport
+    networks:
+      - app-network
+    restart: always
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - app-network
+    restart: on-failure
+  
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: app
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/peliculas
+    networks:
+      - app-network
+    restart: on-failure
+    
+    
+  historial:
+    build:
+      context: ./microservicio-historial
+      dockerfile: Dockerfile
+    container_name: historial
+    ports:
+      - "3001:3001"
+    depends_on:
+      - rabbitmq
+    healthcheck:
+        test: "curl -f http://localhost:3001"
+        interval: 30s
+        timeout: 10s
+        retries: 5
+    restart: on-failure
+    networks:
+      - app-network
+
+  recomendador:
+    build:
+      context: ./recomendador
+      dockerfile: Dockerfile
+    container_name: recomendador
+    ports:
+      - "3002:3002"
+    depends_on:
+      - rabbitmq
+      - historial
+      - app
+    restart: on-failure
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge  # Red puente (default)
+    
+volumes:
+  mongo-data:
+  rabbitmq_data:

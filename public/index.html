@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LUFLIX</title>
+    <style>
+        .titleLUFLIX {
+            text-align: left;
+            font-family: Comic Sans MS;
+            font-weight:bold;
+            font-size: 30px;
+            color: #EBD758;
+            text-shadow: -1px 0 #414D68, 0 1px #414D68, 1px 0 #414D68, 0 -1px #414D68, -2px 2px 0 #414D68, 2px 2px 0 #414D68, 1px 1px #414D68, 2px 2px #414D68, 3px 3px #414D68, 4px 4px #414D68, 5px 5px #414D68; 6px 6px #414D68, 7px 7px #414D68, 8px 8px #414D68, 9px 9px #414D68;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #373737;
+        }
+        .container {
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .carousel-item img {
+            cursor: pointer;
+            width: 200px; /* Ajusta el ancho fijo */
+            height: 600px; /* Ajusta el alto fijo */
+            object-fit: cover; /* Llenar el espacio respetando las proporciones */
+            object-position: center; /* Centrar la imagen */
+            border-radius: 8px; /* Opcional: esquinas redondeadas */
+            margin: auto; /* Centrar la imagen en su columna */
+        }
+        .movie-card {
+            display: inline-block;
+            width: 250px;
+            height: 450px;
+            margin: 10px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            text-align: center;
+            position: relative;
+        }
+        .movie-card img {
+            width: 100%;
+            height: 70%;
+            object-fit: cover;
+        }
+        .movie-title-container {
+            height: 20%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        h1 {
+            color: white;
+        }
+        h5 {
+            all: unset;
+            font-family: system-ui;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="titleLUFLIX">LUFLIX</h1>
+    <!-- Predefined cards template -->
+
+    <h1>Recommendations</h1>
+
+    <div id="carouselExampleAutoplaying" class="carousel slide" data-bs-ride="carousel">
+        <div class="carousel-indicators">
+            <!-- Indicadores generados dinámicamente -->
+        </div>
+        <div class="carousel-inner">
+            <!-- Slides generados dinámicamente -->
+        </div>
+        <button class="carousel-control-prev" type="button" data-bs-target="#carouselExampleAutoplaying" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Previous</span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#carouselExampleAutoplaying" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Next</span>
+        </button>
+    </div>
+
+    <h1>Movies</h1>
+
+    <div id="movies-container">
+        <!-- Card model, waiting to be cloned and completed -->
+        <div class="movie-card template" style="display: none;">
+            <img src="" alt="Movie Poster">
+            <div class="movie-title-container">
+                <h5></h5>
+            </div>
+
+            <button class="btn btn-primary movie-info-btn" type="button" data-bs-toggle="offcanvas" data-bs-target="#movieOffCanvas" aria-controls="movieOffCanvas">
+                Information
+            </button>
+        </div>
+    </div>
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="movieOffCanvas" aria-labelledby="movieOffCanvasLabel">
+        <div class="offcanvas-header">
+            <h2>Movie title</h2>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <img src="" alt="Movie Poster">
+        <div class="offcanvas-body">
+            <p>
+                Full plot description.
+            </p>
+        </div>
+    </div>
+    <button type="button" class="btn btn-primary" onclick="getRandomMovies()">Get Another Set of Movies</button>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io('http://localhost:3000'); // Conecta al servidor WebSocket
+    let movieList = [];
+
+    async function validateImageURL(url) {
+        try {
+            const response = await fetch(url, { method: 'HEAD' }); // Usamos 'HEAD' para evitar descargar el contenido completo.
+            if (response.ok) {
+                return true;
+            }else{
+                return false;
+            }
+        } catch (error) {
+            console.error('Error al verificar la URL de la imagen:', error);
+            return false;
+        }
+    }
+
+    // Escucha las recomendaciones enviadas por el servidor
+    socket.on('newRecommendations', (recommendations) => {
+        updateCarrousel(recommendations); // Llama a la función del HTML
+    });
+
+    async function getRandomMovies() {
+        try {
+            const response = await fetch('http://localhost:3000/movies/random?count=20'); // Change the amount of movies
+            const movies = await response.json();
+
+            const moviesContainer = document.getElementById('movies-container');
+            const templateCard = document.querySelector('.movie-card.template');
+
+            // Clean the container, without removing the card template
+            Array.from(moviesContainer.children).forEach(child => {
+                if (!child.classList.contains('template')) {
+                    child.remove();
+                }
+            });
+
+            for (let movie of movies) {
+                const movieCard = templateCard.cloneNode(true);
+                movieCard.style.display = 'inline-block'; // Show card
+                movieCard.classList.remove('template');
+
+                // Get the html elements that we need to update
+                const moviePoster = movieCard.querySelector('img');
+                const movieTitleCard = movieCard.querySelector('h5');
+                const movieInfoButton = movieCard.querySelector('.movie-info-btn');
+
+                // Save the moveId value into the button
+                movieInfoButton.setAttribute('data-movie-id', movie._id);
+                
+                movieTitleCard.textContent = movie.title;
+                if (movie.poster && await validateImageURL(movie.poster)) {                
+                    moviePoster.src = movie.poster;                    
+                } else {                
+                    if (movie.imdb && movie.imdb.id) {
+                    const imdbId = movie.imdb.id.toString().padStart(7, '0');
+                    const omdbResponse = await fetch(`http://www.omdbapi.com/?i=tt${imdbId}&apikey=ece82a6e`);
+                    const omdbData = await omdbResponse.json();
+
+                    moviePoster.src = omdbData.Poster;                
+                    } else {
+                        // IMDb id does not exist
+                        moviePoster.src = 'placeholder.png';
+                    }
+                }
+
+                // Event to update offCanvas depending on the movie
+                movieInfoButton.onclick = function () {
+                    const movieId = this.getAttribute('data-movie-id');
+                    updateOffCanvas(movieId);
+
+                };
+
+                moviesContainer.appendChild(movieCard);
+            }
+        } catch (error) {
+            console.error('Error fetching movies:', error);
+        }
+    }
+
+    async function updateOffCanvas(movieId) {
+        const response = await fetch(`http://localhost:3000/movies/id/${movieId}`); // Change the amount of movies
+        const movie = await response.json();
+
+        // Get the html elements that we need to update
+        const offcanvas = document.getElementById('movieOffCanvas');
+        const offcanvasTitle = offcanvas.querySelector('h2');
+        const offcanvasImage = offcanvas.querySelector('img');
+        const offcanvasPlot = offcanvas.querySelector('p');
+
+        offcanvasTitle.textContent = movie.title;
+        offcanvasPlot.textContent = movie.fullplot;
+
+        if (movie.poster && await validateImageURL(movie.poster))
+            offcanvasImage.src = movie.poster;
+        else {            
+            if (movie.imdb && movie.imdb.id) {
+                const imdbId = movie.imdb.id.toString().padStart(7, '0');
+                const omdbResponse = await fetch(`http://www.omdbapi.com/?i=tt${imdbId}&apikey=ece82a6e`);
+                const omdbData = await omdbResponse.json();
+
+                offcanvasImage.src = omdbData.Poster;                
+            } else {
+                // IMDb id does not exist
+                offcanvasImage.src = 'placeholder.png';
+            }
+        }
+        
+        // armo el json para dejarlo en el historial
+        const movieData = {
+            id: movieId,
+            title: offcanvasTitle.textContent,
+            poster: offcanvasImage.src,
+            plot: offcanvasPlot.textContent
+        };
+        const movieDataJSON = JSON.stringify(movieData);
+        
+        console.log(movieData);
+        console.log(movieDataJSON);
+
+        saveMovie(movieDataJSON);
+
+    }
+
+    async function handleImageError(event) {
+        const img = event.target; // El elemento <img> que disparó el evento
+        console.warn(`Failed to load image: ${img.src}`);
+        img.src = 'placeholder.png'; // Reemplaza con una imagen predeterminada
+        img.onerror = null; // Evita entrar en un bucle infinito si el placeholder también falla
+    }
+
+    async function updateCarrousel(movies) {
+        try {
+            console.log('New recommendations received:', movies);
+            const carouselInner = document.querySelector('.carousel-inner');
+            const carouselIndicators = document.querySelector('.carousel-indicators');
+
+            movieList.push(...movies)
+
+            // Mantener solo las últimas 12 películas (eliminando las 3 primeras si es necesario)
+            if (movieList.length > 12) {
+                movieList = movieList.slice(3);
+            }
+
+            // Limpiar el carrusel actual
+            carouselInner.innerHTML = '';
+            carouselIndicators.innerHTML = '';
+
+            // Dividir las películas en grupos de 3 (para cada slide)
+            const groups = [];
+            for (let i = 0; i < movieList.length; i += 3) {
+                groups.push(movieList.slice(i, i + 3));
+            }
+
+            for (let index = 0; index < groups.length; index++) {
+                const group = groups[index];
+                // Crear un indicador para cada slide
+                const indicator = document.createElement('button');
+                indicator.type = 'button';
+                indicator.dataset.bsTarget = '#carouselExampleAutoplaying';
+                indicator.dataset.bsSlideTo = index;
+                indicator.setAttribute('aria-label', `Slide ${index + 1}`);
+                if (index === 0) {
+                    indicator.classList.add('active');
+                    indicator.setAttribute('aria-current', 'true');
+                }
+                carouselIndicators.appendChild(indicator);
+
+                // Crear un slide
+                const carouselItem = document.createElement('div');
+                carouselItem.classList.add('carousel-item');
+                if (index === 0) carouselItem.classList.add('active');
+
+                const row = document.createElement('div');
+                row.classList.add('row');
+
+                for (let indexm = 0; indexm < group.length; indexm++) {
+                    const movie = group[indexm];
+                    const col = document.createElement('div');
+                    col.classList.add('col');
+
+                    const img = document.createElement('img');
+                    img.classList.add('d-block', 'w-100');
+                    img.alt = movie.title || 'Movie';
+        
+                    if(movie.poster && await validateImageURL(movie.poster)){
+                        img.src = movie.poster
+                    } else {
+                        if(movie.imdb && movie.imdb.id){
+                            const imdbId = movie.imdb.id.toString().padStart(7, '0');
+                            const omdbResponse = await fetch(`http://www.omdbapi.com/?i=tt${imdbId}&apikey=ece82a6e`);
+                            const omdbData = await omdbResponse.json();
+
+                            img.src = omdbData.Poster;
+                        } else {
+                            img.src = 'placeholder.png';
+                        }
+                    }                    
+
+                    // Evento para abrir el offcanvas al hacer clic
+                    img.onclick = function () {
+                        updateOffCanvas(movie._id.$oid);
+                        const offcanvas = new bootstrap.Offcanvas(document.getElementById('movieOffCanvas'));
+                        offcanvas.show();
+                    };
+
+                    img.onerror = function () {
+                        console.warn(`Failed to load image: ${img.src}`);
+                        img.src = 'placeholder.png';
+                    };
+
+                    col.appendChild(img);
+                    row.appendChild(col);
+                }
+
+                carouselItem.appendChild(row);
+                carouselInner.appendChild(carouselItem);
+            }
+        } catch (error) {
+            console.error('Error updating carousel:', error);
+        }
+    }
+
+    async function saveMovie(movieDataJSON) {
+        try {
+            const response = await fetch('http://localhost:3001/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: movieDataJSON,
+            });
+
+            const data = await response.json();
+            console.log('Respuesta del servidor:', data);
+        } catch (error) {
+            console.error('Error al guardar la película en el historial:', error);
+        }
+    }
+
+    // Load movies when startup
+    window.onload = function () {
+        getRandomMovies();
+    };
+</script>
+</body>
+</html>
